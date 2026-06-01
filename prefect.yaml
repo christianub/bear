@@ -1,0 +1,7 @@
+pull:
+  - prefect.deployments.steps.git_clone:
+      repository: https://github.com/christianub/bear
+      branch: main
+  - prefect.deployments.steps.run_shell_script:
+      script: pip install -e .
+      directory: "{{ directory }}"
