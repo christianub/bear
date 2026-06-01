@@ -1,7 +1,17 @@
+name: bear
+prefect-version: 3.4.6
+
 pull:
   - prefect.deployments.steps.git_clone:
       repository: https://github.com/christianub/bear
       branch: main
+      id: clone-step
   - prefect.deployments.steps.run_shell_script:
       script: pip install -e .
-      directory: "{{ directory }}"
+      directory: "{{ clone-step.directory }}"
+
+deployments:
+  - name: bear
+    entrypoint: main.py:run
+    work_pool:
+      name: default-work-pool
