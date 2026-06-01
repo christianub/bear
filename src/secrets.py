@@ -1,16 +1,18 @@
 import json
+import warnings
 from datetime import datetime, timezone
 
-import boto3
-from botocore.exceptions import ClientError
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from prefect.blocks.system import Secret
 from pydantic import BaseModel
 
 from src.api_utils import async_retry
-from src.aws.interface import AWS, AWSAuth
+from src.aws.interface import AWS
 from src.errors import SkillException
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 class SnowflakeAuth(BaseModel):
@@ -20,36 +22,37 @@ class SnowflakeAuth(BaseModel):
     warehouse: str
 
 
-def _load_json_secret(secret_id: str) -> dict:
-    client = boto3.client("secretsmanager")
+async def _load_prefect_json_block(block_name: str) -> dict:
     try:
-        response = client.get_secret_value(SecretId=secret_id)
-    except ClientError as e:
-        raise ValueError(f"Failed to load secret {secret_id!r}") from e
-    return json.loads(response["SecretString"])
+        secret_block = Secret.load(block_name)
+        raw = secret_block.get()
+    except AttributeError as e:
+        if "'coroutine' object has no attribute 'get'" in str(e):
+            secret_block = await Secret.load(block_name)  # type: ignore
+            raw = secret_block.get()
+        else:
+            raise
+
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        return json.loads(raw)
+    raise ValueError(f"Unexpected secret format for Prefect block {block_name!r}")
 
 
-async def get_secrets(is_hippa: bool) -> tuple[AWSAuth, SnowflakeAuth]:
-    if is_hippa:
-        snowflake_block = "hipa-snowflake-role"
-        aws_block = "hippa-aws-secret"
-    else:
-        snowflake_block = "prod-snowflake-role"
-        aws_block = "api-aws-creds"
-
-    snowflake_secrets = _load_json_secret(snowflake_block)
-    aws_secrets = _load_json_secret(aws_block)
-
-    return AWSAuth(**aws_secrets), SnowflakeAuth(**snowflake_secrets)
+async def get_snowflake_auth() -> SnowflakeAuth:
+    block_name = "prod-snowflake-role"
+    data = await _load_prefect_json_block(block_name)
+    return SnowflakeAuth(**data)
 
 
-async def get_secret(secret: str) -> dict:
-    return _load_json_secret(secret)
+async def get_secret(block_name: str) -> dict:
+    return await _load_prefect_json_block(block_name)
 
 
 @async_retry(max_retries=5, retry_delay=3)
-async def resolve_secrets(is_hippa: bool = False) -> tuple[AWSAuth, SnowflakeAuth]:
-    return await get_secrets(is_hippa=is_hippa)
+async def resolve_secrets() -> SnowflakeAuth:
+    return await get_snowflake_auth()
 
 
 def load_p8_key(p8_file_path: str, password: str | bytes):

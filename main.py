@@ -1,12 +1,12 @@
-
+from instantgmp.deploy import run_instant_gmp
+from instantgmp.config import FlowParams
 from prefect import flow
-from instantGMP.config import FlowParams
-from instantGMP.deploy import run_instant_gmp
+from prefect.blocks.system import Secret
+import asyncio
 
-@flow 
-def run(flow_params: FlowParams | dict) -> None:
-    """Run the Instant GMP ETL pipeline."""
-    if not isinstance(flow_params, FlowParams):
-        flow_params = FlowParams(**flow_params)
+@flow
+def run():
+    flow_params = Secret.load("instantgmpsecrets")
+    flow_params = flow_params.get()
+    flow_params = FlowParams(**flow_params)
     asyncio.run(run_instant_gmp(flow_params=flow_params))
-

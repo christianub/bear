@@ -4,7 +4,6 @@ from typing import List
 from dotenv import load_dotenv
 from pandas import DataFrame
 
-
 from instantgmp.api.batch_production_record import (
     call_batch_production_record_query,
 )
@@ -199,7 +198,6 @@ async def run_instant_gmp(flow_params: FlowParams):
         f_number=flow_params.f_number,
         table_config_map=upload_map,
         api=API,
-        is_hippa=False,
         use_f_num_db=True,
     )
 

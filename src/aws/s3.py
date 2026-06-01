@@ -1,46 +1,8 @@
-from datetime import datetime
-from typing import Union
-
 import boto3
 import xmltodict
 
-# from polars import DataFrame
-from pandas import DataFrame as DFPandas
-from polars import DataFrame as DFPolars
-
 from src.api_utils import async_retry
 from src.secrets import AWSAuth
-from src.upload_config import UploadConfig
-
-
-def upload_parquet_to_s3_V2(aws_auth: AWSAuth, df: Union[DFPandas, DFPolars], upload_config: UploadConfig) -> str:
-    """Uploads a parquet file to s3
-
-    Args:
-        aws_auth (AWSAuth): AWS credentials
-        df (DataFrame): Dataframe to upload
-        upload_config (UploadConfig): An instance of UploadConfig
-
-    Returns:
-        str: Filename of the uploaded file for Snowflake merging
-    """
-    file_name = f"{upload_config.table}-{upload_config.f_number}-{datetime.now().strftime('%Y-%m-%d_%H_%M_%S')}.parquet"
-    bucket_key = f"{upload_config.s3_partition}/{file_name}"
-
-    if isinstance(df, DFPandas):
-        df.to_parquet(file_name, engine="pyarrow", compression="gzip")
-
-    if isinstance(df, DFPolars):
-        df.write_parquet(file_name, compression="gzip")
-
-    s3 = boto3.client(
-        "s3",
-        aws_access_key_id=aws_auth.access_key,
-        aws_secret_access_key=aws_auth.secret_key,
-    )
-    s3.upload_file(file_name, upload_config.bucket, bucket_key)
-
-    return file_name
 
 
 async def s3_path_exist(aws_auth: AWSAuth, bucket_name: str, path_prefix: str) -> bool:
