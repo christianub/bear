@@ -7,7 +7,6 @@ import asyncio
 @flow
 def run():
     flow_params = Secret.load("instantgmpsecrets")
-    flow_params = Secret.load("prod-snowflake-role")
     flow_params = flow_params.get()
     flow_params = FlowParams(**flow_params)
     asyncio.run(run_instant_gmp(flow_params=flow_params))
